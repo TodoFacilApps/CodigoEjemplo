@@ -1,0 +1,84 @@
+uses
+  IdHTTP, System.JSON, IdSSL;
+
+function RecolectarDatos(const ATelefono: Integer; const ARazonSocial, ACiNit, ACantidad: string): TJSONObject;
+var
+  lcComerceID, lcNroPago, lcCorreo, lcUrlCallBack, lcUrlReturn, lcUrl: string;
+  lnMoneda, lnMontoClienteEmpresa: Integer;
+  laPedidoDetalle: TJSONArray;
+  loHTTPClient: TIdHTTP;
+  loSSLHandler: TIdSSLIOHandlerSocketOpenSSL;
+  loHeader: TJSONObject;
+  loRequest, loResponse: TStringStream;
+begin
+  Result := nil;
+  try
+    lcComerceID := '';
+    lnMoneda := 2;
+    lcNroPago := 'test-' + IntToStr(Random(900000) + 100000);
+    lnMontoClienteEmpresa := StrToInt(ACantidad);
+    lcCorreo := 'correo_ejemplo@example.com';
+    lcUrlCallBack := 'http://localhost:8000/';
+    lcUrlReturn := 'http://localhost:8000/';
+    lcUrl := '';
+
+    loHTTPClient := TIdHTTP.Create;
+    try
+      // Configuración SSL si es necesario (dependiendo de la URL puede requerir SSL)
+      loSSLHandler := TIdSSLIOHandlerSocketOpenSSL.Create(loHTTPClient);
+      loHTTPClient.IOHandler := loSSLHandler;
+
+      if ATipoServicio = 1 then
+      begin
+        lcUrl := 'https://serviciostigomoney.pagofacil.com.bo/api/servicio/generarqrv2';
+      end
+      else if ATipoServicio = 2 then
+      begin
+        lcUrl := 'https://serviciostigomoney.pagofacil.com.bo/api/servicio/realizarpagotigomoneyv2';
+      end;
+
+      loHeader := TJSONObject.Create;
+      loHeader.AddPair('Accept', 'application/json');
+
+      laPedidoDetalle := TJSONArray.Create;
+
+      // Aquí debes llenar el contenido de 'laPedidoDetalle' con los elementos correspondientes
+
+      loRequest := TStringStream.Create(TJSONObject.Create
+        .AddPair('tcCommerceID', lcComerceID)
+        .AddPair('tnMoneda', lnMoneda)
+        .AddPair('tnTelefono', ATelefono)
+        .AddPair('tcNombreUsuario', ARazonSocial)
+        .AddPair('tnCiNit', ACiNit)
+        .AddPair('tcNroPago', lcNroPago)
+        .AddPair('tnMontoClienteEmpresa', lnMontoClienteEmpresa)
+        .AddPair('tcCorreo', lcCorreo)
+        .AddPair('tcUrlCallBack', lcUrlCallBack)
+        .AddPair('tcUrlReturn', lcUrlReturn)
+        .AddPair('taPedidoDetalle', laPedidoDetalle)
+        .ToJSON);
+
+      try
+        loResponse := TStringStream.Create;
+        try
+          loHTTPClient.Post(lcUrl, loRequest, loResponse);
+
+          // Aquí se puede analizar la respuesta JSON y convertirla a un objeto TJSONObject
+          Result := TJSONObject.ParseJSONValue(loResponse.DataString) as TJSONObject;
+        finally
+          loResponse.Free;
+        end;
+      finally
+        loRequest.Free;
+      end;
+    finally
+      loHTTPClient.Free;
+    end;
+  except
+    on E: Exception do
+    begin
+      Result := TJSONObject.Create;
+      Result.AddPair('error', E.Message);
+    end;
+  end;
+end;
